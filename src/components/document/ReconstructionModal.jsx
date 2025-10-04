@@ -161,71 +161,73 @@ const TrashIcon = () => (
 );
 
 // --- FUNGSI PARSING MARKDOWN ---
-const parseMarkdownTable = (markdown) => {
-  if (!markdown || typeof markdown !== "string") {
-    return { headers: [], rows: [], textBefore: "", textAfter: "" };
-  }
+const parseMultiTableMarkdown = (markdown) => {
+  if (!markdown || typeof markdown !== "string") return [];
 
   const lines = markdown.split("\n");
-  let tableStartIndex = -1;
-  let tableEndIndex = -1;
+  const contentBlocks = [];
+  let currentTextLines = [];
+  let currentTableLines = [];
 
-  // Temukan indeks baris awal tabel
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim().startsWith("|")) {
-      tableStartIndex = i;
-      break;
+  const flushText = () => {
+    if (currentTextLines.length > 0) {
+      contentBlocks.push({
+        type: "text",
+        content: currentTextLines.join("\n"),
+      });
+      currentTextLines = [];
     }
-  }
+  };
 
-  // Jika tidak ada tabel sama sekali, anggap semua adalah 'textBefore'
-  if (tableStartIndex === -1) {
-    return { headers: [], rows: [], textBefore: markdown, textAfter: "" };
-  }
+  const flushTable = () => {
+    if (currentTableLines.length > 0) {
+      const parseRow = (rowStr) => rowStr.split("|").slice(1, -1).map((cell) => cell.trim());
+      
+      if (currentTableLines.length >= 2 && currentTableLines[1].includes("---")) {
+        const headers = parseRow(currentTableLines[0]);
+        const rows = currentTableLines.slice(2).map(parseRow);
+        contentBlocks.push({ type: "table", data: { headers, rows } });
+      } else {
+        // Jika struktur tabel tidak valid, anggap sebagai teks biasa
+        currentTextLines.push(...currentTableLines);
+      }
+      currentTableLines = [];
+    }
+  };
 
-  // Temukan indeks baris akhir tabel
-  tableEndIndex = tableStartIndex;
-  for (let i = tableStartIndex + 1; i < lines.length; i++) {
-    if (lines[i].trim().startsWith("|")) {
-      tableEndIndex = i;
+  lines.forEach((line) => {
+    const isTableLine = line.trim().startsWith("|") && line.trim().endsWith("|");
+    
+    if (isTableLine) {
+      flushText(); // Simpan blok teks sebelumnya jika ada
+      currentTableLines.push(line);
     } else {
-      break; // Berhenti saat menemukan baris bukan tabel
+      flushTable(); // Simpan blok tabel sebelumnya jika ada
+      currentTextLines.push(line);
     }
-  }
+  });
 
-  // Pisahkan teks menjadi tiga bagian
-  const textBefore = lines.slice(0, tableStartIndex).join("\n");
-  const tableLines = lines.slice(tableStartIndex, tableEndIndex + 1);
-  const textAfter = lines.slice(tableEndIndex + 1).join("\n");
+  flushText(); // Pastikan sisa teks terakhir disimpan
+  flushTable(); // Pastikan sisa tabel terakhir disimpan
 
-  // Proses parsing tabel seperti biasa dari tableLines
-  if (tableLines.length < 2) {
-    // Jika struktur tabel tidak valid, kembalikan semua sebagai textBefore
-    return { headers: [], rows: [], textBefore: markdown, textAfter: "" };
-  }
-
-  const parseRow = (rowStr) =>
-    rowStr
-      .split("|")
-      .slice(1, -1)
-      .map((cell) => cell.trim());
-
-  const headers = parseRow(tableLines[0]);
-  if (!tableLines[1] || !tableLines[1].includes("---")) {
-    return { headers: [], rows: [], textBefore: markdown, textAfter: "" };
-  }
-  const rows = tableLines.slice(2).map(parseRow);
-
-  return { headers, rows, textBefore, textAfter };
+  return contentBlocks;
 };
 
 // --- FUNGSI KONVERSI KE MARKDOWN ---
-const convertToMarkdown = (headers, rows) => {
-  const headerRow = `| ${headers.join(" | ")} |`;
-  const separatorRow = `|${headers.map(() => "---").join("|")}|`;
-  const dataRows = rows.map((row) => `| ${row.join(" | ")} |`).join("\n");
-
-  return `${headerRow}\n${separatorRow}\n${dataRows}`;
+const convertContentBlocksToMarkdown = (blocks) => {
+  return blocks.map(block => {
+    if (block.type === 'text') {
+      return block.content;
+    }
+    if (block.type === 'table') {
+      const { headers, rows } = block.data;
+      const headerRow = `| ${headers.join(" | ")} |`;
+      const separatorRow = `|${headers.map(() => "---").join("|")}|`;
+      const dataRows = rows.map((row) => `| ${row.join(" | ")} |`).join("\n");
+      return `${headerRow}\n${separatorRow}\n${dataRows}`;
+    }
+    return '';
+  }).join('\n\n'); // Beri jarak antar blok
 };
 
 // --- HOOK UNTUK DROPDOWN ---
@@ -656,6 +658,164 @@ const AdvancedTableEditor = ({ headers, rows, onTableChange }) => {
   );
 };
 
+// --- KOMPONEN PRATINJAU GAMBAR DENGAN ZOOM & DRAG ---
+const ImagePreviewWithZoom = ({ imagePath, pageNumber }) => {
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef(null);
+  const imageRef = useRef(null);
+
+  const handleZoomIn = () => {
+    setZoomLevel(prev => Math.min(4, prev + 0.2));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(0.3, prev - 0.2));
+  };
+
+  const handleResetZoom = () => {
+    setZoomLevel(1);
+    setPosition({ x: 0, y: 0 });
+  };
+
+  const handleMouseDown = (e) => {
+    if (zoomLevel > 1) {
+      e.preventDefault();
+      setIsDragging(true);
+      setDragStart({
+        x: e.clientX - position.x,
+        y: e.clientY - position.y
+      });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging && zoomLevel > 1) {
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
+      
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const imageRect = imageRef.current.getBoundingClientRect();
+      
+      // Perhitungan batas yang lebih akurat
+        const maxX = Math.max(0, (imageRect.width - containerRect.width) / 2);
+      const maxY = Math.max(0, (imageRect.height - containerRect.height) / 2);
+      
+      setPosition({
+        x: Math.max(-maxX, Math.min(maxX, newX)),
+        y: Math.max(-maxY, Math.min(maxY, newY))
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+ const handleWheel = (e) => {
+    e.preventDefault();
+    if (e.ctrlKey) {
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoomLevel(prev => Math.max(0.3, Math.min(4, prev + delta)));
+    } else {
+      if (zoomLevel > 1) {
+         // Logika scroll untuk pan (opsional, bisa di-uncomment jika diinginkan)
+        // setPosition(prev => ({
+        //   x: prev.x - e.deltaX * 0.5,
+        //   y: prev.y - e.deltaY * 0.5
+        // }));
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (zoomLevel <= 1) { // Reset jika zoom kembali ke 1 atau kurang
+      setPosition({ x: 0, y: 0 });
+    }
+  }, [zoomLevel]);
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between mb-4">
+        <label className="font-semibold text-gray-700 text-lg">
+          Pratinjau Gambar
+        </label>
+        <div className="flex items-center gap-2 bg-gray-100 border rounded-lg p-2">
+          {/* ... tombol zoom tidak berubah ... */}
+          <button
+            onClick={handleZoomOut}
+            title="Zoom Out"
+            className="p-2 hover:bg-gray-200 rounded-md"
+          >
+            <ZoomOutIcon />
+          </button>
+          <button
+            onClick={handleResetZoom}
+            title="Reset Zoom"
+            className="p-2 hover:bg-gray-200 rounded-md"
+          >
+            <ResetZoomIcon />
+          </button>
+          <button
+            onClick={handleZoomIn}
+            title="Zoom In"
+            className="p-2 hover:bg-gray-200 rounded-md"
+          >
+            <ZoomInIcon />
+          </button>
+          <span className="text-sm font-semibold text-gray-600 w-12 text-center">
+            {(zoomLevel * 100).toFixed(0)}%
+          </span>
+        </div>
+      </div>
+      
+      <div 
+        ref={containerRef}
+        className="border-2 border-gray-200 rounded-lg bg-gray-50 flex-1 overflow-hidden relative"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+        style={{
+          cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+          userSelect: 'none' // Tambahan: Mencegah teks/gambar terseleksi saat drag
+        }}
+      >
+        <div 
+          className="absolute inset-0 flex items-center justify-center"
+          style={{
+            transform: `translate(${position.x}px, ${position.y}px)`,
+            transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+          }}
+        >
+          <img
+            ref={imageRef}
+            src={`http://127.0.0.1:5001${imagePath}`}
+            alt={`Pratinjau Halaman ${pageNumber}`}
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
+             style={{
+              transform: `scale(${zoomLevel})`,
+              transformOrigin: 'center center',
+              maxWidth: '100%', 
+              maxHeight: '100%',
+            }}
+          />
+        </div>
+        
+        {zoomLevel > 1 && (
+          <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+            Klik dan tahan untuk menggeser • Scroll untuk menggeser • Ctrl+Scroll untuk zoom
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // --- KOMPONEN MODAL UTAMA ---
 export default function ReconstructionModal({
   chunkData,
@@ -667,46 +827,39 @@ export default function ReconstructionModal({
   isLoading,
 }) {
   const [editedContent, setEditedContent] = useState("");
-  const [zoomLevel, setZoomLevel] = useState(1);
   const [activeTab, setActiveTab] = useState("editor");
-  const [isEditorExpanded, setIsEditorExpanded] = useState(false); // State untuk expand
-
-  const contentParts = useRef({ textBefore: "", textAfter: "" });
-
-  const API_URL = "http://127.0.0.1:5001";
+  const [isEditorExpanded, setIsEditorExpanded] = useState(false);
 
   useEffect(() => {
     if (chunkData) {
       setEditedContent(
         chunkData.reconstructed_content || chunkData.chunk_content || ""
       );
-      setZoomLevel(1);
       setActiveTab("editor");
     }
   }, [chunkData]);
 
-  const tablePreviewData = useMemo(() => {
-    const { headers, rows, textBefore, textAfter } =
-      parseMarkdownTable(editedContent);
-    // Simpan teks sekitar ke dalam ref setiap kali konten berubah
-    contentParts.current = { textBefore, textAfter };
-    return { headers, rows }; // Editor tetap hanya butuh header dan rows
+  // --- PERUBAHAN: Gunakan parser baru ---
+  const contentBlocks = useMemo(() => {
+    return parseMultiTableMarkdown(editedContent);
   }, [editedContent]);
 
-  const handleTableChange = (newHeaders, newRows) => {
-    const newTableMarkdown = convertToMarkdown(newHeaders, newRows);
-    const { textBefore, textAfter } = contentParts.current;
-
-    // Gabungkan kembali ketiga bagian: teks sebelumnya, tabel baru, dan teks sesudahnya
-    // filter(Boolean) untuk menangani jika textBefore atau textAfter kosong
-    const fullContent = [textBefore, newTableMarkdown, textAfter]
-      .filter(Boolean)
-      .join("\n");
-
-    setEditedContent(fullContent);
+  // --- PERUBAHAN: Handler untuk mengubah tabel tertentu berdasarkan index-nya ---
+  const handleTableChange = (tableIndex, newHeaders, newRows) => {
+    const newBlocks = JSON.parse(JSON.stringify(contentBlocks)); // Deep copy
+    newBlocks[tableIndex].data = { headers: newHeaders, rows: newRows };
+    const newMarkdown = convertContentBlocksToMarkdown(newBlocks);
+    setEditedContent(newMarkdown);
   };
 
-  // Ikon untuk expand/collapse
+  // --- BARU: Handler untuk mengubah blok teks berdasarkan index-nya ---
+  const handleTextChange = (textIndex, newText) => {
+    const newBlocks = JSON.parse(JSON.stringify(contentBlocks)); // Deep copy
+    newBlocks[textIndex].content = newText;
+    const newMarkdown = convertContentBlocksToMarkdown(newBlocks);
+    setEditedContent(newMarkdown);
+  };
+
   const ExpandIcon = () => (
     <svg
       className="w-5 h-5"
@@ -777,69 +930,28 @@ export default function ReconstructionModal({
         ) : (
           <>
             <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 overflow-hidden">
-              {/* Kolom Kiri: Pratinjau Gambar (kondisional) */}
               <div
                 className={`
-                                ${
-                                  isEditorExpanded
-                                    ? "hidden"
-                                    : "lg:w-2/5 flex flex-col h-1/2 lg:h-full"
-                                }
-                                transition-all duration-300
-                            `}
+                  ${
+                    isEditorExpanded
+                      ? "hidden"
+                      : "lg:w-2/5 flex flex-col h-1/2 lg:h-full"
+                  }
+                  transition-all duration-300
+                `}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <label className="font-semibold text-gray-700 text-lg">
-                    Pratinjau Gambar
-                  </label>
-                  <div className="flex items-center gap-2 bg-gray-100 border rounded-lg p-2">
-                    <button
-                      onClick={() =>
-                        setZoomLevel((p) => Math.max(0.3, p - 0.2))
-                      }
-                      title="Zoom Out"
-                      className="p-2 hover:bg-gray-200 rounded-md"
-                    >
-                      <ZoomOutIcon />
-                    </button>
-                    <button
-                      onClick={() => setZoomLevel(1)}
-                      title="Reset Zoom"
-                      className="p-2 hover:bg-gray-200 rounded-md"
-                    >
-                      <ResetZoomIcon />
-                    </button>
-                    <button
-                      onClick={() => setZoomLevel((p) => Math.min(4, p + 0.2))}
-                      title="Zoom In"
-                      className="p-2 hover:bg-gray-200 rounded-md"
-                    >
-                      <ZoomInIcon />
-                    </button>
-                    <span className="text-sm font-semibold text-gray-600 w-12 text-center">
-                      {(zoomLevel * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="border-2 border-gray-200 rounded-lg p-3 bg-gray-50 flex-1 overflow-auto">
-                  <img
-                    src={`${API_URL}${chunkData.image_path}`}
-                    alt={`Pratinjau Halaman ${chunkData.page_number}`}
-                    className="transition-transform duration-200 mx-auto shadow-lg"
-                    style={{
-                      transform: `scale(${zoomLevel})`,
-                      transformOrigin: "center center",
-                    }}
-                  />
-                </div>
+                <ImagePreviewWithZoom 
+                  imagePath={chunkData.image_path}
+                  pageNumber={chunkData.page_number}
+                />
               </div>
 
               {/* Kolom Kanan: Tampilan Tab (bisa expand) */}
               <div
                 className={`
-                                ${isEditorExpanded ? "w-full" : "lg:w-3/5"}
-                                flex flex-col h-1/2 lg:h-full transition-all duration-300
-                            `}
+                  ${isEditorExpanded ? "w-full" : "lg:w-3/5"}
+                  flex flex-col h-1/2 lg:h-full transition-all duration-300
+                `}
               >
                 <div className="flex-shrink-0 flex justify-between items-center border-b border-gray-200">
                   <div className="flex">
@@ -885,12 +997,29 @@ export default function ReconstructionModal({
                 </div>
 
                 <div className="flex-1 mt-4 overflow-hidden">
-                  {activeTab === "editor" && (
-                    <AdvancedTableEditor
-                      headers={tablePreviewData.headers}
-                      rows={tablePreviewData.rows}
-                      onTableChange={handleTableChange}
-                    />
+                   {activeTab === "editor" && (
+                    <div className="w-full h-full overflow-auto space-y-6 p-2 bg-gray-50 border rounded-lg">
+                      {contentBlocks.map((block, index) => (
+                        <div key={index}>
+                          {block.type === 'table' && (
+                            <div>
+                                <label className="text-xs font-semibold text-gray-500 uppercase ml-2">Tabel #{contentBlocks.filter(b => b.type === 'table').indexOf(block) + 1}</label>
+                                <div className="h-[400px] border rounded-lg overflow-hidden bg-white shadow-sm">
+                                    <AdvancedTableEditor
+                                        headers={block.data.headers}
+                                        rows={block.data.rows}
+                                        // Kirim index tabel yang diedit ke handler
+                                        onTableChange={(newHeaders, newRows) =>
+                                            handleTableChange(index, newHeaders, newRows)
+                                        }
+                                    />
+                                </div>
+                            </div>
+                          )}
+
+                        </div>
+                      ))}
+                    </div>
                   )}
                   {activeTab === "original" && (
                     <pre className="w-full h-full p-6 border-2 border-gray-200 bg-gray-50 rounded-lg overflow-auto text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
@@ -898,38 +1027,31 @@ export default function ReconstructionModal({
                     </pre>
                   )}
                   {activeTab === "preview" && (
-                    <div className="w-full h-full p-4 border-2 border-gray-200 rounded-lg overflow-auto bg-white">
-                      <table className="w-full text-sm border-collapse">
-                        <thead>
-                          <tr className="bg-gray-100">
-                            {tablePreviewData.headers.map((header, index) => (
-                              <th
-                                key={index}
-                                className="p-4 border-b-2 border-gray-300 font-semibold text-gray-700 text-left"
-                              >
-                                {header}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tablePreviewData.rows.map((row, rowIndex) => (
-                            <tr
-                              key={rowIndex}
-                              className="hover:bg-gray-50 even:bg-gray-50/50"
-                            >
-                              {row.map((cell, colIndex) => (
-                                <td
-                                  key={colIndex}
-                                  className="p-4 border-b border-gray-200"
-                                >
-                                  {cell}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="w-full h-full p-4 border-2 border-gray-200 rounded-lg overflow-auto bg-white prose max-w-none">
+                      {contentBlocks.map((block, index) => {
+                        if (block.type === 'text') {
+                          return <p key={index} className="whitespace-pre-wrap">{block.content}</p>;
+                        }
+                        if (block.type === 'table') {
+                          return (
+                            <table key={index} className="w-full text-sm border-collapse my-4">
+                              <thead>
+                                <tr className="bg-gray-100">
+                                  {block.data.headers.map((h, i) => <th key={i} className="p-2 border font-semibold">{h}</th>)}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {block.data.rows.map((row, rowIndex) => (
+                                  <tr key={rowIndex}>
+                                    {row.map((cell, cellIndex) => <td key={cellIndex} className="p-2 border">{cell}</td>)}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          );
+                        }
+                        return null;
+                      })}
                     </div>
                   )}
                   {activeTab === "raw" && (

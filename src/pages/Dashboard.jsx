@@ -277,6 +277,7 @@ export default function Dashboard() {
                     </p>
                     <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
                       {formatTimeAgo(activity.timestamp)}
+                      {console.log(activity.timestamp)}
                     </span>
                   </div>
                 ))}

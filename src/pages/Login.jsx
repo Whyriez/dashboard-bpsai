@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import routes from "../routes";
+import apiFetch from "../services/api";
 
 const EmailIcon = () => (
   <svg
@@ -54,22 +55,13 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const response = await fetch("http://127.0.0.1:5001/api/auth/login", {
+      const response = await apiFetch("/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
-      console.log(formData)
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.msg || "Login gagal");
-      }
-
-      localStorage.setItem("access_token", data.access_token); 
-      localStorage.setItem('refresh_token', data.refresh_token);
+      localStorage.setItem("access_token", response.access_token); 
+      localStorage.setItem('refresh_token', response.refresh_token);
       navigate(routes.dashboard);
     } catch (err) {
       setError(err.message);

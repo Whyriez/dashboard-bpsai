@@ -64,10 +64,10 @@ export default function Header({ onMenuClick }) {
             </div>
             <div>
               <h1 className="text-lg md:text-xl font-semibold text-gray-900">
-                📊 BPS Gorontalo
+                📊 SIGAP BPS
               </h1>
               <p className="hidden md:block text-sm text-gray-500">
-                Badan Pusat Statistik Indonesia - Provinsi Gorontalo
+                Sistem Informasi Generatif Asisten Pengetahuan Badan Pusat Statistik Provinsi Gorontalo
               </p>
             </div>
           </div>

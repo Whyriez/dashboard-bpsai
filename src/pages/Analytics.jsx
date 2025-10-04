@@ -80,7 +80,6 @@ export default function Analytics() {
     fetchAnalyticsData();
   }, []);
 
-  // --- useEffect terpisah untuk mengelola siklus hidup chart ---
   useEffect(() => {
     let chartInstance = null;
     if (chartRef.current && analyticsData?.usageTrends) {
@@ -88,15 +87,12 @@ export default function Analytics() {
         type: "line",
         data: {
           labels: analyticsData.usageTrends.labels,
-          // --- PENYESUAIAN DI SINI ---
-          // Langsung gunakan datasets dari API yang sudah berisi 2 set data
           datasets: analyticsData.usageTrends.datasets,
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            // Tampilkan legenda untuk membedakan garis
             legend: {
               display: true,
               position: "top",
@@ -136,6 +132,17 @@ export default function Analytics() {
 
   const keywordColors = ["blue", "green", "yellow", "purple", "red", "indigo"];
 
+
+  const formatAverageTime = (ms) => {
+    if (ms === undefined || ms === null) {
+      return "-";
+    }
+    if (ms < 1000) {
+      return `${ms}ms`; 
+    }
+    return `${(ms / 1000).toFixed(2)} detik`;
+  };
+  
   return (
     <div id="analytics" className="section fade-in space-y-6">
       <div className="mb-6">
@@ -172,7 +179,7 @@ export default function Analytics() {
             </h3>
             <div className="text-center mb-4">
               <div className="text-3xl font-bold text-blue-600">
-                {analyticsData.responseTime.average}ms
+                {formatAverageTime(analyticsData.responseTime.average)}
               </div>
               <div className="text-sm text-gray-600">
                 Waktu Respons Rata-rata
@@ -180,7 +187,7 @@ export default function Analytics() {
             </div>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">&lt; 100ms</span>
+                <span className="text-sm text-gray-600">&lt; 2 detik</span>
                 <div className="flex-1 mx-3 bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-green-500 h-2 rounded-full"
@@ -194,7 +201,7 @@ export default function Analytics() {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">100-500ms</span>
+                <span className="text-sm text-gray-600">2 - 5 detik</span>
                 <div className="flex-1 mx-3 bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-blue-500 h-2 rounded-full"
@@ -208,7 +215,7 @@ export default function Analytics() {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">&gt; 500ms</span>
+                <span className="text-sm text-gray-600">&gt; 5 detik</span>
                 <div className="flex-1 mx-3 bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-yellow-500 h-2 rounded-full"

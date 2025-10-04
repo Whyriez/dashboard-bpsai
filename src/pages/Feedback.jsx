@@ -15,7 +15,7 @@ export default function Feedback() {
   useEffect(() => {
     const fetchFeedbackData = async () => {
       try {
-        const data = await apiFetch('/feedback');
+        const data = await apiFetch("/feedback");
         setStats(data.stats);
         setFeedbackData(data.feedback);
       } catch (err) {
@@ -45,9 +45,11 @@ export default function Feedback() {
   return (
     <div id="feedback" className="section fade-in space-y-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">User Feedback</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          Umpan Balik Pengguna
+        </h2>
         <p className="text-gray-600">
-          Monitor user satisfaction and improvement opportunities
+          Pantau kepuasan pengguna dan peluang peningkatan
         </p>
       </div>
 
