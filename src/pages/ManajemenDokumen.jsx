@@ -284,6 +284,7 @@ const DokumenTable = () => {
   const fetchChunkingJobStatus = useCallback(async () => {
     try {
       const status = await apiFetch("/documents/chunking/status");
+      console.log(status)
       setChunkingJobStatus((prevStatus) => {
         if (
           prevStatus &&

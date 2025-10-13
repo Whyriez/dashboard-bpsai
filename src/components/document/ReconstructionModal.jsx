@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { API_BASE_URL } from "../../services/api";
 
 // --- Komponen Ikon ---
 const LoadingSpinner = () => (
@@ -793,7 +794,7 @@ const ImagePreviewWithZoom = ({ imagePath, pageNumber }) => {
         >
           <img
             ref={imageRef}
-            src={`http://127.0.0.1:5001${imagePath}`}
+            src={`${API_BASE_URL}${imagePath}`}
             alt={`Pratinjau Halaman ${pageNumber}`}
             draggable={false}
             onDragStart={(e) => e.preventDefault()}
@@ -853,12 +854,12 @@ export default function ReconstructionModal({
   };
 
   // --- BARU: Handler untuk mengubah blok teks berdasarkan index-nya ---
-  const handleTextChange = (textIndex, newText) => {
-    const newBlocks = JSON.parse(JSON.stringify(contentBlocks)); // Deep copy
-    newBlocks[textIndex].content = newText;
-    const newMarkdown = convertContentBlocksToMarkdown(newBlocks);
-    setEditedContent(newMarkdown);
-  };
+  // const handleTextChange = (textIndex, newText) => {
+  //   const newBlocks = JSON.parse(JSON.stringify(contentBlocks)); // Deep copy
+  //   newBlocks[textIndex].content = newText;
+  //   const newMarkdown = convertContentBlocksToMarkdown(newBlocks);
+  //   setEditedContent(newMarkdown);
+  // };
 
   const ExpandIcon = () => (
     <svg
