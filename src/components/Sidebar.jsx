@@ -27,9 +27,9 @@ const AddNewsIcon = () => (
 );
 
 const DataBrsIcon = () => (
-  <svg 
-    fill="none" 
-    stroke="currentColor" 
+  <svg
+    fill="none"
+    stroke="currentColor"
     viewBox="0 0 24 24"
     className="w-6 h-6"
   >
@@ -98,6 +98,16 @@ const SettingsIcon = () => (
   </svg>
 );
 
+const KeyIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H5v-2H3v-2H1.258a1 1 0 01-.97-1.243l1.258-7.5a1 1 0 01.97-1.243H15z"
+    />
+  </svg>
+);
 
 const NavItem = ({ to, children, onClick, icon }) => (
   <NavLink
@@ -111,7 +121,7 @@ const NavItem = ({ to, children, onClick, icon }) => (
       }`
     }
   >
-    <div className="w-5 h-5">{icon}</div> 
+    <div className="w-5 h-5">{icon}</div>
     <span className="font-medium">{children}</span>
   </NavLink>
 );
@@ -133,14 +143,36 @@ export default function Sidebar({ isOpen, onClose }) {
           ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <nav className="space-y-2">
-          <NavItem to="/dashboard" onClick={onClose} icon={<DashboardIcon />}>Dashboard</NavItem>
-          <NavItem to="/berita-resmi-statistik" onClick={onClose} icon={<DataBrsIcon />}> Data Brs</NavItem>
-          <NavItem to="/manajemen-dokumen" onClick={onClose} icon={<DocumentIcon />}>
+          <NavItem to="/dashboard" onClick={onClose} icon={<DashboardIcon />}>
+            Dashboard
+          </NavItem>
+          <NavItem
+            to="/berita-resmi-statistik"
+            onClick={onClose}
+            icon={<DataBrsIcon />}
+          >
+            {" "}
+            Data Brs
+          </NavItem>
+          <NavItem
+            to="/manajemen-dokumen"
+            onClick={onClose}
+            icon={<DocumentIcon />}
+          >
             Manajemen Dokumen
           </NavItem>
-          <NavItem to="/analytics" onClick={onClose} icon={<AnalyticsIcon />}>Analytics</NavItem>
-          <NavItem to="/feedback" onClick={onClose} icon={<FeedbackIcon />}>Feedback</NavItem>
-          <NavItem to="/settings" onClick={onClose} icon={<SettingsIcon />}>Settings</NavItem>
+          <NavItem to="/analytics" onClick={onClose} icon={<AnalyticsIcon />}>
+            Analytics
+          </NavItem>
+          <NavItem to="/feedback" onClick={onClose} icon={<FeedbackIcon />}>
+            Feedback
+          </NavItem>
+          <NavItem to="/manage-api-keys" onClick={onClose} icon={<KeyIcon />}>
+            Manajemen API Key
+          </NavItem>
+          <NavItem to="/settings" onClick={onClose} icon={<SettingsIcon />}>
+            Settings
+          </NavItem>
         </nav>
       </aside>
     </>

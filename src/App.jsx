@@ -17,6 +17,7 @@ import LoginPage from "./pages/Login";
 import routes from "./routes";
 import ManajemenDokumen from "./pages/ManajemenDokumen";
 import DetailDokumen from "./pages/DetailDokumen";
+import ManageApiKeys from "./pages/ManageApiKeys";
 
 export default function App() {
   return (
@@ -65,6 +66,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Feedback />
+            </ProtectedRoute>
+          }
+        />
+         <Route
+          path={routes.manageApiKeys}
+          element={
+            <ProtectedRoute>
+              <ManageApiKeys />
             </ProtectedRoute>
           }
         />

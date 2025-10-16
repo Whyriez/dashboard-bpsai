@@ -7,6 +7,7 @@ const routes = {
   manajemenDokumen: "/manajemen-dokumen",
   detailDokumen: (documentId = ':documentId') => `/manajemen-dokumen/${documentId}`,
   feedback: "/feedback",
+  manageApiKeys: "/manage-api-keys",
   settings: "/settings",
 };
 

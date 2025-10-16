@@ -668,6 +668,32 @@ const ImagePreviewWithZoom = ({ imagePath, pageNumber }) => {
   const containerRef = useRef(null);
   const imageRef = useRef(null);
 
+const getFullImagePath = (path) => {
+    if (!path) return '';
+
+    // Jika path sudah merupakan URL lengkap, gunakan langsung.
+    if (path.startsWith('http')) {
+      return path;
+    }
+
+    // Jika path sudah diawali dengan /api, kita hanya butuh origin dari API_BASE_URL.
+    if (path.startsWith('/api')) {
+      try {
+        const url = new URL(API_BASE_URL);
+        // Menggabungkan origin (http://host:port) dengan path yang sudah ada.
+        return `${url.origin}${path}`;
+      } catch (e) {
+        // Fallback jika API_BASE_URL tidak valid
+        return path;
+      }
+    }
+    
+    // Jika path tidak memiliki prefix, gabungkan dengan API_BASE_URL lengkap.
+    return `${API_BASE_URL}${path}`;
+  };
+
+  const fullImagePath = useMemo(() => getFullImagePath(imagePath), [imagePath]);
+
   const handleZoomIn = () => {
     setZoomLevel(prev => Math.min(4, prev + 0.2));
   };
@@ -794,7 +820,7 @@ const ImagePreviewWithZoom = ({ imagePath, pageNumber }) => {
         >
           <img
             ref={imageRef}
-            src={`${API_BASE_URL}${imagePath}`}
+            src={fullImagePath}
             alt={`Pratinjau Halaman ${pageNumber}`}
             draggable={false}
             onDragStart={(e) => e.preventDefault()}
@@ -839,6 +865,7 @@ export default function ReconstructionModal({
       setActiveTab("editor");
     }
   }, [chunkData]);
+  
 
   // --- PERUBAHAN: Gunakan parser baru ---
   const contentBlocks = useMemo(() => {
