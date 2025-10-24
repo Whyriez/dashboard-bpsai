@@ -61,18 +61,18 @@ export default function Header({ onMenuClick }) {
           <div className="flex items-center space-x-3">
             <div className="w-15 h-15 bg-gradient-to-br  rounded-lg flex items-center justify-center">
               <img
-                src="/Sigap.png"
+                src="/bpslogo.png"
                 alt="Logo SIGAP BPS Gorontalo"
                 className="h-full w-full object-contain"
               />
             </div>
             <div>
               <h1 className="text-lg md:text-xl font-semibold text-gray-900">
-                📊 SIGAP BPS
+                SIGAP BPS
               </h1>
               <p className="hidden md:block text-sm text-gray-500">
-                Sistem Informasi Generatif Asisten Pengetahuan Badan Pusat
-                Statistik Provinsi Gorontalo
+                Sistem Informasi Generatif Asisten Pengetahuan BPS Provinsi
+                Gorontalo
               </p>
             </div>
           </div>

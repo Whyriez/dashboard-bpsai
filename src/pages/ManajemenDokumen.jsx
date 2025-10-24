@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import apiFetch from "../services/api";
 import routes from "../routes";
 import toast, { Toaster } from "react-hot-toast"; // <-- 1. IMPORT TOAST
+import useDebounce from "../hooks/useDebounce";
 
 // --- Komponen Ikon (tidak berubah) ---
 const SkeletonRow = () => (
@@ -260,6 +261,8 @@ const DokumenTable = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState(null);
 
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
   const fetchDocuments = useCallback(async () => {
     if (data.documents.length === 0) setLoading(true); // Hanya loading penuh di awal
     setError(null);
@@ -279,12 +282,11 @@ const DokumenTable = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, searchTerm, data.documents.length]);
+  }, [page, perPage, debouncedSearchTerm, data.documents.length]);
 
   const fetchChunkingJobStatus = useCallback(async () => {
     try {
       const status = await apiFetch("/documents/chunking/status");
-      console.log(status)
       setChunkingJobStatus((prevStatus) => {
         if (
           prevStatus &&
@@ -303,10 +305,16 @@ const DokumenTable = () => {
   }, [fetchDocuments]);
 
   useEffect(() => {
+    setPage(1);
+  }, [debouncedSearchTerm]);
+
+  useEffect(() => {
     fetchDocuments();
+  }, [page, debouncedSearchTerm]);
+
+  useEffect(() => {
     fetchChunkingJobStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, searchTerm]);
+  }, []);
 
   useEffect(() => {
     if (

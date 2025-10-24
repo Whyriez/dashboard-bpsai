@@ -1,6 +1,56 @@
-export const API_BASE_URL = "http://10.75.0.13/api";
-// export const API_BASE_URL = "http://127.0.0.1:5005/api";
+// export const API_BASE_URL = "http://10.75.0.13/api";
+export const API_BASE_URL = "http://127.0.0.1:5005/api";
 
+// Fungsi untuk logout
+const logout = () => {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  // Redirect ke halaman login, ganti '/login' jika path Anda berbeda
+  window.location.href = '/login'; 
+};
+
+// Fungsi fetch asli yang akan kita bungkus
+const originalFetch = async (url, options = {}) => {
+    const token = localStorage.getItem('access_token');
+    
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const config = { ...options, headers };
+    const response = await fetch(`${API_BASE_URL}${url}`, config);
+
+    // Jika response BUKAN ok, kita siapkan object error
+    if (!response.ok) {
+        let errorData;
+        const contentType = response.headers.get("content-type");
+        // Cek apakah responsnya JSON atau bukan (misal: HTML)
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            errorData = await response.json();
+        } else {
+            // Jika bukan JSON, buat pesan error manual
+            errorData = { msg: `Server error: ${response.statusText}` };
+        }
+
+        const error = new Error(errorData.msg || 'Terjadi kesalahan');
+        error.response = response; // Lampirkan seluruh response object
+        throw error;
+    }
+
+    // Handle respons tanpa konten (misal: 204 No Content dari DELETE)
+    if (response.status === 204) {
+        return null;
+    }
+    
+    return response.json();
+};
+
+// --- LOGIKA INTERCEPTOR UNTUK REFRESH TOKEN ---
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -15,81 +65,78 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-const apiFetch = async (endpoint, options = {}) => {
-  let token = localStorage.getItem('access_token');
-  
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
+const apiFetch = async (url, options = {}) => {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
-
-    // Jika token hangus (401), coba refresh
-    if (response.status === 401) {
-      if (!isRefreshing) {
-        isRefreshing = true;
-        const refreshToken = localStorage.getItem('refresh_token');
-
-        if (!refreshToken) {
-          // Jika refresh token tidak ada, langsung logout
-          localStorage.removeItem('access_token');
-          window.location.href = '/login';
-          return Promise.reject(new Error("Sesi tidak valid."));
-        }
-
-        try {
-          const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${refreshToken}` }
-          });
-          
-          const refreshData = await refreshResponse.json();
-          
-          if (!refreshResponse.ok) throw new Error("Sesi berakhir.");
-
-          const newAccessToken = refreshData.access_token;
-          localStorage.setItem('access_token', newAccessToken);
-          isRefreshing = false;
-          processQueue(null, newAccessToken);
-
-          // Ulangi request yang gagal dengan token baru
-          headers['Authorization'] = `Bearer ${newAccessToken}`;
-          return fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers }).then(res => res.json());
-
-        } catch (refreshError) {
-          processQueue(refreshError, null);
-          isRefreshing = false;
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          window.location.href = '/login';
-          return Promise.reject(refreshError);
-        }
-      } else {
-        // Jika sedang ada proses refresh lain, tunggu promise-nya selesai
+    return await originalFetch(url, options);
+  } catch (error) {
+    const originalRequest = { url, options };
+    
+    // Cek apakah error disebabkan oleh token kedaluwarsa (status 401)
+    // dan pastikan request yang gagal bukan request refresh itu sendiri
+    if (error.response?.status === 401 && originalRequest.url !== '/auth/refresh') {
+      
+      // Jika sudah ada proses refresh yang berjalan, antre request ini
+      if (isRefreshing) {
         return new Promise((resolve, reject) => {
-            failedQueue.push({ resolve, reject });
-        }).then(newToken => {
-            headers['Authorization'] = `Bearer ${newToken}`;
-            return fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers }).then(res => res.json());
+          failedQueue.push({ resolve, reject });
+        })
+        .then(token => {
+            // Setelah token baru didapat, ulangi request dengan token tsb
+            const newOptions = {...originalRequest.options};
+            newOptions.headers = {
+                ...newOptions.headers,
+                'Authorization': 'Bearer ' + token
+            };
+            return originalFetch(originalRequest.url, newOptions);
         });
+      }
+
+      isRefreshing = true;
+      const refreshToken = localStorage.getItem('refresh_token');
+
+      if (!refreshToken) {
+        logout();
+        return Promise.reject(error);
+      }
+
+      try {
+        // Lakukan request untuk mendapatkan access token baru
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${refreshToken}` 
+          }
+        });
+
+        if (!response.ok) throw new Error("Sesi berakhir, silakan login kembali.");
+
+        const { access_token: newAccessToken } = await response.json();
+        localStorage.setItem('access_token', newAccessToken);
+        
+        // Proses antrean request yang gagal dengan token baru
+        processQueue(null, newAccessToken);
+        
+        // Ulangi request pertama yang gagal dengan token baru
+        const newOptions = {...originalRequest.options};
+        newOptions.headers = {
+            ...newOptions.headers,
+            'Authorization': `Bearer ${newAccessToken}`
+        };
+        return await originalFetch(originalRequest.url, newOptions);
+
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        console.error("Gagal refresh token:", refreshError);
+        logout(); // Refresh token juga gagal/kedaluwarsa, paksa logout
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.msg || 'Terjadi kesalahan pada server');
-    }
-    
-    return response.json();
-  } catch (error) {
-    console.error("API Fetch Error:", error);
-    throw error;
+    // Jika error bukan 401, lemparkan saja agar bisa ditangani komponen
+    return Promise.reject(error);
   }
 };
 
