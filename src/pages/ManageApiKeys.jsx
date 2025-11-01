@@ -109,7 +109,6 @@ const ApiKeysManager = () => {
   const [formLoading, setFormLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
     try {
       const [keysResult, statsResult] = await Promise.all([
         apiFetch("/gemini-keys"),
@@ -445,7 +444,7 @@ const ApiKeysManager = () => {
                   Alias
                 </th>
                 <th scope="col" className="px-6 py-3 font-semibold">
-                  Status
+                  Status / Reset Dalam
                 </th>
                 <th scope="col" className="px-6 py-3 font-semibold">
                   Total Request
@@ -483,7 +482,7 @@ const ApiKeysManager = () => {
                       {key.key_alias}
                     </td>
                     <td className="px-6 py-4">
-                      <StatusBadge keyData={key} />
+                      <StatusBadge keyData={key} onTimerEnd={fetchData} />
                     </td>
                     <td className="px-6 py-4 text-center">
                       {key.total_requests}
@@ -551,26 +550,65 @@ const StatCard = ({ title, value, color }) => {
   );
 };
 
-const StatusBadge = ({ keyData }) => {
-  if (keyData.quota_exceeded) {
+const CountdownTimer = ({ timeUntilReset, onTimerEnd }) => {
+    // Pastikan timeUntilReset ada dan memiliki total_seconds
+    const initialSeconds = timeUntilReset?.total_seconds || 0;
+    const [secondsLeft, setSecondsLeft] = useState(Math.floor(initialSeconds));
+  
+    useEffect(() => {
+      if (secondsLeft <= 0) {
+        // Panggil onTimerEnd setelah sedikit delay untuk memastikan UI update
+        setTimeout(onTimerEnd, 1500);
+        return;
+      }
+  
+      const intervalId = setInterval(() => {
+        setSecondsLeft((prev) => prev - 1);
+      }, 1000);
+  
+      // Cleanup function untuk membersihkan interval saat komponen di-unmount
+      return () => clearInterval(intervalId);
+    }, [secondsLeft, onTimerEnd]);
+  
+    if (secondsLeft <= 0) {
+      return (
+        <span className="text-xs font-mono text-blue-600">
+            Cek status...
+        </span>
+      );
+    }
+  
+    // Fungsi untuk format waktu, tambahkan '0' di depan jika angka < 10
+    const formatTime = (time) => String(time).padStart(2, '0');
+  
+    const hours = Math.floor(secondsLeft / 3600);
+    const minutes = Math.floor((secondsLeft % 3600) / 60);
+    const seconds = secondsLeft % 60;
+  
     return (
-      <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
-        Quota Habis
+      <span className="text-xs font-mono text-gray-600" title={`Reset pada ${new Date(timeUntilReset.reset_time).toLocaleString('id-ID')}`}>
+        {formatTime(hours)}:{formatTime(minutes)}:{formatTime(seconds)}
       </span>
     );
-  }
-  if (keyData.is_active) {
-    return (
-      <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">
-        Aktif
-      </span>
-    );
-  }
-  return (
-    <span className="px-2 py-1 text-xs font-semibold text-gray-800 bg-gray-200 rounded-full">
-      Tidak Aktif
-    </span>
-  );
+  };
+
+const StatusBadge = ({ keyData, onTimerEnd }) => {
+    if (keyData.quota_exceeded) {
+      return (
+        <div className="flex flex-col items-start gap-1">
+          <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
+            Quota Habis
+          </span>
+          {keyData.time_until_reset && (
+            <CountdownTimer timeUntilReset={keyData.time_until_reset} onTimerEnd={onTimerEnd} />
+          )}
+        </div>
+      );
+    }
+    if (keyData.is_active) {
+      return (<span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">Aktif</span>);
+    }
+    return (<span className="px-2 py-1 text-xs font-semibold text-gray-800 bg-gray-200 rounded-full">Tidak Aktif</span>);
 };
 
 export default function ManageApiKeys() {
