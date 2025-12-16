@@ -144,7 +144,7 @@ export default function Sidebar({ isOpen, onClose }) {
       >
         <nav className="space-y-2">
           <NavItem to="/dashboard" onClick={onClose} icon={<DashboardIcon />}>
-            Dashboard
+            Beranda
           </NavItem>
           <NavItem
             to="/berita-resmi-statistik"
@@ -152,26 +152,26 @@ export default function Sidebar({ isOpen, onClose }) {
             icon={<DataBrsIcon />}
           >
             {" "}
-            Data Brs
+            Data BRS
           </NavItem>
           <NavItem
             to="/manajemen-dokumen"
             onClick={onClose}
             icon={<DocumentIcon />}
           >
-            Manajemen Dokumen
+            Data Dokumen
           </NavItem>
           <NavItem to="/analytics" onClick={onClose} icon={<AnalyticsIcon />}>
-            Analytics
+            Analisis
           </NavItem>
           <NavItem to="/feedback" onClick={onClose} icon={<FeedbackIcon />}>
-            Feedback
+            Umpan Balik
           </NavItem>
           <NavItem to="/manage-api-keys" onClick={onClose} icon={<KeyIcon />}>
-            Manajemen API Key
+            Data API Key
           </NavItem>
           <NavItem to="/settings" onClick={onClose} icon={<SettingsIcon />}>
-            Settings
+            Pengaturan
           </NavItem>
         </nav>
       </aside>

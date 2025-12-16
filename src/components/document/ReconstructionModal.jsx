@@ -857,6 +857,8 @@ export default function ReconstructionModal({
   const [activeTab, setActiveTab] = useState("editor");
   const [isEditorExpanded, setIsEditorExpanded] = useState(false);
 
+  const isTable = useMemo(() => chunkData?.type === 'table', [chunkData]);
+
   useEffect(() => {
     if (chunkData) {
       setEditedContent(
@@ -958,26 +960,32 @@ export default function ReconstructionModal({
         ) : (
           <>
             <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 overflow-hidden">
-              <div
-                className={`
-                  ${
-                    isEditorExpanded
-                      ? "hidden"
-                      : "lg:w-2/5 flex flex-col h-1/2 lg:h-full"
-                  }
-                  transition-all duration-300
-                `}
-              >
-                <ImagePreviewWithZoom 
-                  imagePath={chunkData.image_path}
-                  pageNumber={chunkData.page_number}
-                />
-              </div>
+              {isTable && (
+                <div
+                  className={`
+                    ${
+                      isEditorExpanded
+                        ? "hidden"
+                        : "lg:w-2/5 flex flex-col h-1/2 lg:h-full"
+                    }
+                    transition-all duration-300
+                  `}
+                >
+                  <ImagePreviewWithZoom 
+                    imagePath={chunkData.image_path}
+                    pageNumber={chunkData.page_number}
+                  />
+                </div>
+              )}
 
               {/* Kolom Kanan: Tampilan Tab (bisa expand) */}
               <div
                 className={`
-                  ${isEditorExpanded ? "w-full" : "lg:w-3/5"}
+                  ${
+                    !isTable // Jika BUKAN table (alias text)
+                      ? "w-full" // Selalu full width
+                      : (isEditorExpanded ? "w-full" : "lg:w-3/5") // Logic lama jika table
+                  }
                   flex flex-col h-1/2 lg:h-full transition-all duration-300
                 `}
               >
@@ -995,7 +1003,7 @@ export default function ReconstructionModal({
                     >
                       <div className="flex items-center gap-2">
                         <EditIcon />
-                        Editor Tabel
+                      {isTable ? "Editor Tabel" : "Editor Teks"}
                       </div>
                     </TabButton>
                     <TabButton
@@ -1011,43 +1019,61 @@ export default function ReconstructionModal({
                       Raw Markdown
                     </TabButton>
                   </div>
-                  <button
-                    onClick={() => setIsEditorExpanded(!isEditorExpanded)}
-                    title={
-                      isEditorExpanded
-                        ? "Tampilkan Pratinjau Gambar"
-                        : "Perbesar Editor"
-                    }
-                    className="p-2 text-gray-500 hover:bg-gray-100 rounded-md"
-                  >
-                    {isEditorExpanded ? <CollapseIcon /> : <ExpandIcon />}
-                  </button>
+                  {isTable && (
+                    <button
+                      onClick={() => setIsEditorExpanded(!isEditorExpanded)}
+                      title={
+                        isEditorExpanded
+                          ? "Tampilkan Pratinjau Gambar"
+                          : "Perbesar Editor"
+                      }
+                      className="p-2 text-gray-500 hover:bg-gray-100 rounded-md"
+                    >
+                      {isEditorExpanded ? <CollapseIcon /> : <ExpandIcon />}
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex-1 mt-4 overflow-hidden">
                    {activeTab === "editor" && (
-                    <div className="w-full h-full overflow-auto space-y-6 p-2 bg-gray-50 border rounded-lg">
-                      {contentBlocks.map((block, index) => (
-                        <div key={index}>
-                          {block.type === 'table' && (
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase ml-2">Tabel #{contentBlocks.filter(b => b.type === 'table').indexOf(block) + 1}</label>
-                                <div className="h-[400px] border rounded-lg overflow-hidden bg-white shadow-sm">
-                                    <AdvancedTableEditor
-                                        headers={block.data.headers}
-                                        rows={block.data.rows}
-                                        // Kirim index tabel yang diedit ke handler
-                                        onTableChange={(newHeaders, newRows) =>
-                                            handleTableChange(index, newHeaders, newRows)
-                                        }
-                                    />
+                     <>
+                      {/* Jika Tipe TABLE, tampilkan editor canggih */}
+                      {isTable && (
+                        <div className="w-full h-full overflow-auto space-y-6 p-2 bg-gray-50 border rounded-lg">
+                          {contentBlocks.map((block, index) => (
+                            <div key={index}>
+                              {block.type === 'table' && (
+                                <div>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase ml-2">Tabel #{contentBlocks.filter(b => b.type === 'table').indexOf(block) + 1}</label>
+                                    <div className="h-[400px] border rounded-lg overflow-hidden bg-white shadow-sm">
+                                        <AdvancedTableEditor
+                                            headers={block.data.headers}
+                                            rows={block.data.rows}
+                                            onTableChange={(newHeaders, newRows) =>
+                                                handleTableChange(index, newHeaders, newRows)
+                                            }
+                                        />
+                                    </div>
                                 </div>
+                              )}
+                              {/* NOTE: Anda bisa tambahkan renderer untuk block.type === 'text' 
+                                di sini jika diperlukan di antara tabel
+                              */}
                             </div>
-                          )}
-
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      )}
+                      
+                      {/* Jika Tipe TEXT, tampilkan textarea sederhana (seperti tab Raw) */}
+                      {!isTable && (
+                        <textarea
+                          value={editedContent}
+                          onChange={(e) => setEditedContent(e.target.value)}
+                          className="w-full h-full p-6 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm resize-none leading-relaxed"
+                          placeholder="Konten markdown akan muncul di sini..."
+                        />
+                      )}
+                     </>
                   )}
                   {activeTab === "original" && (
                     <pre className="w-full h-full p-6 border-2 border-gray-200 bg-gray-50 rounded-lg overflow-auto text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">
