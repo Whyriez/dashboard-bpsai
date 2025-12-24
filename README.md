@@ -22,7 +22,7 @@ Lakukan langkah-langkah berikut untuk menjalankan aplikasi di komputer lokal (De
 ```bash
 # 1. Clone repository
 git clone https://github.com/Whyriez/dashboard-bpsai.git
-cd bpsai-frontend
+cd dashboard-bpsai
 
 # 2. Install Library/Dependencies
 npm install
